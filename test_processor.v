@@ -1,0 +1,27 @@
+`timescale 1ns / 100ps
+`default_nettype none
+
+module test_processor;
+    localparam STEP = 8;
+    localparam CLKNUM = 100;
+
+    reg clk, rstn;
+    wire [7:0] a0out;
+
+    processor processor_0(clk, rstn, a0out);
+
+    always begin
+        clk = 0; #(STEP/2);
+        clk = 1; #(STEP/2);
+    end
+
+    initial begin
+                   rstn = 1;
+        #(STEP*10) rstn = 0;
+        #(STEP*10) rstn = 1;
+        #(STEP*CLKNUM);
+        
+        $display("a0: %x\n", a0out);
+        $finish;
+    end
+endmodule
