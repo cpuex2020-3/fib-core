@@ -1,26 +1,50 @@
 `timescale 1ns / 100ps
 `default_nettype none
 
-module alu (srca, srcb, res);
+module alu (srca, srcb, control, porm, lora, res);
     input wire [31:0] srca, srcb;
+    input wire [2:0] control;
+    input wire porm, lora;
     output [31:0] res;
 
+    wire signed [31:0] srca_s, srcb_s;
     wire [31:0] res;
 
-    assign res = srca + srcb;
+    localparam alu_add_sub  = 3'b000;
+    localparam alu_shift_l  = 3'b001;
+    localparam alu_lt       = 3'b010;
+    localparam alu_lt_u     = 3'b011;
+    localparam alu_xor      = 3'b100;
+    localparam alu_shift_r  = 3'b101;
+    localparam alu_or       = 3'b110;
+    localparam alu_and      = 3'b111;
+
+    assign srca_s = srca;
+    assign srcb_s = srcb;
+    assign res =
+        control == alu_add_sub  ? (porm ? srca - srcb : srca + srcb)
+      : control == alu_shift_l  ? srca << srcb[5:0]
+      : control == alu_lt       ? {31'b0, srca_s < srcb_s}
+      : control == alu_lt_u     ? {31'b0, srca < srcb}
+      : control == alu_xor      ? srca ^ srcb
+      : control == alu_shift_r  ? (lora ? srca_s >>> srcb[5:0] : srca >> srcb[5:0])
+      : control == alu_or       ? srca | srcb
+                                : srca & srcb;
 endmodule
 
 module main_controller(clk, rstn, instr,
-    pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, alusrca, alusrcb, tx_ready);
+    pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, 
+    alusrca, alusrcb, alucontrol, porm, lora, tx_ready);
     input wire clk, rstn;
     input wire [31:0] instr;
-    output pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, alusrca, tx_ready;
-    output [2:0] alusrcb;
+    output pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, alusrca, porm, lora, tx_ready;
+    output [2:0] alusrcb, alucontrol;
 
-    reg pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, alusrca, tx_ready;
-    reg [2:0] alusrcb;
+    reg pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, alusrca, porm, lora, tx_ready;
+    reg [2:0] alusrcb, alucontrol;
     reg [4:0] state;
     wire [4:0] opcode;
+    wire [2:0] funct3;
     wire [2:0] imm;
 
     localparam s_fetch0     = 5'h00;
@@ -32,6 +56,8 @@ module main_controller(clk, rstn, instr,
     localparam s_writeback  = 5'h06;
     localparam s_memwrite   = 5'h07;
     localparam s_transmit   = 5'h08;
+    localparam s_arimm_exec = 5'h09;
+    localparam s_alu_wb     = 5'h0A;
     localparam s_halt       = 5'h1E;
     localparam s_init       = 5'h1F;
 
@@ -48,7 +74,17 @@ module main_controller(clk, rstn, instr,
     localparam srcb_uj      = 3'b110;
     localparam srcb_undef   = 3'b111;
 
+    localparam alu_add_sub  = 3'b000;
+    localparam alu_shift_l  = 3'b001;
+    localparam alu_lt       = 3'b010;
+    localparam alu_lt_u     = 3'b011;
+    localparam alu_xor      = 3'b100;
+    localparam alu_shift_r  = 3'b101;
+    localparam alu_or       = 3'b110;
+    localparam alu_and      = 3'b111;
+
     assign opcode = instr[6:2];
+    assign funct3 = instr[14:12];
     assign imm =
         opcode == op_load       ? srcb_i
       : opcode == op_arith_imm  ? srcb_i
@@ -65,16 +101,22 @@ module main_controller(clk, rstn, instr,
             regwrite <= 0;
             alusrca <= 0;
             alusrcb <= 0;
+            alucontrol <= 0;
+            porm <= 0;
+            lora <= 0;
             state <= s_init;
         end else begin
             if (state == s_init
              || state == s_writeback
              || state == s_memwrite
-             || state == s_transmit) begin
+             || state == s_transmit
+             || state == s_alu_wb) begin
                 state <= s_fetch0;
                 pcwrite <= 1;
                 alusrca <= 0;
                 alusrcb <= 3'b001;
+                alucontrol <= alu_add_sub;
+                porm <= 0;
                 regwrite <= 0;  // s_writeback
                 memwrite <= 0;  // s_memwrite
                 tx_ready <= 0;  // s_transimt
@@ -96,9 +138,18 @@ module main_controller(clk, rstn, instr,
                     state <= s_memaddr;
                     alusrca <= 1;
                     alusrcb <= imm;
+                    alucontrol <= alu_add_sub;
+                    porm <= 0;
                 end else if (opcode == op_tx) begin
                     state <= s_transmit;
                     tx_ready <= 1;
+                end else if (opcode == op_arith_imm) begin
+                    state <= s_arimm_exec;
+                    alusrca <= 1;
+                    alusrcb <= imm;
+                    alucontrol <= funct3;
+                    porm <= 0;
+                    lora <= instr[30];
                 end else begin
                     state <= s_halt;
                 end
@@ -114,6 +165,10 @@ module main_controller(clk, rstn, instr,
             end else if (state == s_memread) begin
                 state <= s_writeback;
                 memtoreg <= 1;
+                regwrite <= 1;
+            end else if (state == s_arimm_exec) begin
+                state <= s_alu_wb;
+                memtoreg <= 0;
                 regwrite <= 1;
             end
         end
@@ -141,8 +196,9 @@ module core (clk, rstn,
     reg [31:0] x [31:0]; // registers
     reg [8:0] pc;
     // controll
-    wire pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, alusrca;
+    wire pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, alusrca, porm, lora;
     wire [2:0] alusrcb;
+    wire [2:0] alucontrol;
     // outputs
     reg [31:0] aluout;
     wire [7:0] sdata;
@@ -184,9 +240,9 @@ module core (clk, rstn,
                           : 0;
     assign sdata = a[7:0];
 
-    alu alu_0(srca, srcb, aluresult);
+    alu alu_0(srca, srcb, alucontrol, porm, lora, aluresult);
     main_controller main_controller_0(clk, rstn, instr,
-        pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, alusrca, alusrcb, tx_ready);
+        pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, alusrca, alusrcb, alucontrol, porm, lora, tx_ready);
 
     always @(posedge clk) begin
         if (~rstn) begin
