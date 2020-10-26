@@ -58,6 +58,7 @@ module main_controller(clk, rstn, instr,
     localparam s_transmit   = 5'h08;
     localparam s_arimm_exec = 5'h09;
     localparam s_alu_wb     = 5'h0A;
+    localparam s_ari_exec   = 5'h0B;
     localparam s_halt       = 5'h1E;
     localparam s_init       = 5'h1F;
 
@@ -150,6 +151,13 @@ module main_controller(clk, rstn, instr,
                     alucontrol <= funct3;
                     porm <= 0;
                     lora <= instr[30];
+                end else if (opcode == op_arith) begin
+                    state <= s_ari_exec;
+                    alusrca <= 1;
+                    alusrcb <= 0;
+                    alucontrol <= funct3;
+                    porm <= instr[30];
+                    lora <= instr[30];
                 end else begin
                     state <= s_halt;
                 end
@@ -166,7 +174,8 @@ module main_controller(clk, rstn, instr,
                 state <= s_writeback;
                 memtoreg <= 1;
                 regwrite <= 1;
-            end else if (state == s_arimm_exec) begin
+            end else if (state == s_arimm_exec
+                      || state == s_ari_exec) begin
                 state <= s_alu_wb;
                 memtoreg <= 0;
                 regwrite <= 1;
