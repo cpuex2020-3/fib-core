@@ -47,9 +47,9 @@ module main_controller(clk, rstn, instr,
     wire [2:0] funct3;
     wire [2:0] imm;
 
-    localparam s_fetch0     = 5'h00;
-    localparam s_fetch1     = 5'h01;
-    localparam s_fetch2     = 5'h02;
+    localparam s_nextpc     = 5'h00;
+    localparam s_fetch0     = 5'h01;
+    localparam s_fetch1     = 5'h02;
     localparam s_decode     = 5'h03;
     localparam s_memaddr    = 5'h04;
     localparam s_memread    = 5'h05;
@@ -107,12 +107,11 @@ module main_controller(clk, rstn, instr,
             lora <= 0;
             state <= s_init;
         end else begin
-            if (state == s_init
-             || state == s_writeback
+            if (state == s_writeback
              || state == s_memwrite
              || state == s_transmit
              || state == s_alu_wb) begin
-                state <= s_fetch0;
+                state <= s_nextpc;
                 pcwrite <= 1;
                 alusrca <= 0;
                 alusrcb <= 3'b001;
@@ -121,16 +120,17 @@ module main_controller(clk, rstn, instr,
                 regwrite <= 0;  // s_writeback
                 memwrite <= 0;  // s_memwrite
                 tx_ready <= 0;  // s_transimt
+            end else if (state == s_init
+             || state == s_nextpc) begin
+                state <= s_fetch0;
+                pcwrite <= 0;   // s_nextpc
+                iord <= 0;
             end else if (state == s_fetch0) begin
                 state <= s_fetch1;
-                pcwrite <= 0;   // s_fetch0
-                iord <= 0;
-            end else if (state == s_fetch1) begin
-                state <= s_fetch2;
                 irwrite <= 1;
-            end else if (state == s_fetch2) begin
+            end else if (state == s_fetch1) begin
                 state <= s_decode;
-                irwrite <= 0;   // s_fetch2
+                irwrite <= 0;   // s_fetch1
             end else if (state == s_decode) begin
                 if (instr == 0) begin
                     state <= s_halt;
@@ -257,7 +257,7 @@ module core (clk, rstn,
         if (~rstn) begin
             x[reg_zero] <= 32'h0;
             x[reg_gp] <= 32'h200;
-            pc <= 9'h1FC;
+            pc <= 0;
             instr <= 0;
             a <= 0;
             b <= 0;
