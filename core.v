@@ -8,6 +8,7 @@ module alu (srca, srcb, control, porm, lora, res);
     output [31:0] res;
 
     wire signed [31:0] srca_s, srcb_s;
+    wire [4:0] shamt;
     wire [31:0] res;
 
     localparam alu_add_sub  = 3'b000;
@@ -21,13 +22,14 @@ module alu (srca, srcb, control, porm, lora, res);
 
     assign srca_s = srca;
     assign srcb_s = srcb;
+    assign shamt = srcb[4:0];
     assign res =
         control == alu_add_sub  ? (porm ? srca - srcb : srca + srcb)
-      : control == alu_shift_l  ? srca << srcb[5:0]
+      : control == alu_shift_l  ? srca << shamt
       : control == alu_lt       ? {31'b0, srca_s < srcb_s}
       : control == alu_lt_u     ? {31'b0, srca < srcb}
       : control == alu_xor      ? srca ^ srcb
-      : control == alu_shift_r  ? (lora ? srca_s >>> srcb[5:0] : srca >> srcb[5:0])
+      : control == alu_shift_r  ? (lora ? srca_s >>> shamt : srca >> shamt)
       : control == alu_or       ? srca | srcb
                                 : srca & srcb;
 endmodule
