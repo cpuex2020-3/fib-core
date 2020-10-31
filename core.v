@@ -105,6 +105,7 @@ module main_controller(clk, rstn, instr,
             alucontrol <= 0;
             porm <= 0;
             lora <= 0;
+            tx_ready <= 0;
             state <= s_init;
         end else begin
             if (state == s_init
