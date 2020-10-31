@@ -1,0 +1,7 @@
+xsim*
+*.sim.*
+xelab*
+xvlog*
+*Xil*
+webtalk*
+vivado*
