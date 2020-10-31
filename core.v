@@ -68,7 +68,7 @@ module main_controller(clk, rstn, instr,
     localparam op_arith_imm = 5'h04;
     localparam op_store     = 5'h08;
     localparam op_arith     = 5'h0C;
-    localparam op_tx        = 5'h1F;
+    localparam op_tx        = 5'h03;
 
     localparam srcb_i       = 3'b010;
     localparam srcb_s       = 3'b011;
