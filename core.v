@@ -1,15 +1,17 @@
 `timescale 1ns / 100ps
 `default_nettype none
 
-module alu (srca, srcb, control, porm, lora, res);
+module alu (srca, srcb, control, porm, lora, res, zero);
     input wire [31:0] srca, srcb;
     input wire [2:0] control;
     input wire porm, lora;
     output [31:0] res;
+    output zero;
 
     wire signed [31:0] srca_s, srcb_s;
     wire [4:0] shamt;
     wire [31:0] res;
+    wire zero;
 
     localparam alu_add_sub  = 3'b000;
     localparam alu_shift_l  = 3'b001;
@@ -32,13 +34,15 @@ module alu (srca, srcb, control, porm, lora, res);
       : control == alu_shift_r  ? (lora ? srca_s >>> shamt : srca >> shamt)
       : control == alu_or       ? srca | srcb
                                 : srca & srcb;
+    assign zero = res == 0;
 endmodule
 
 module main_controller(clk, rstn, instr,
     pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, 
-    alusrca, alusrcb, alucontrol, porm, lora, tx_ready);
+    alusrca, alusrcb, alucontrol, porm, lora, aluzero, tx_ready);
     input wire clk, rstn;
     input wire [31:0] instr;
+    input wire aluzero;
     output pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, alusrca, porm, lora, tx_ready;
     output [2:0] alusrcb, alucontrol;
 
@@ -61,6 +65,8 @@ module main_controller(clk, rstn, instr,
     localparam s_arimm_exec = 5'h09;
     localparam s_alu_wb     = 5'h0A;
     localparam s_ari_exec   = 5'h0B;
+    localparam s_compare    = 5'h0C;
+    localparam s_branch     = 5'h0D;
     localparam s_halt       = 5'h1E;
     localparam s_init       = 5'h1F;
 
@@ -68,7 +74,8 @@ module main_controller(clk, rstn, instr,
     localparam op_arith_imm = 5'h04;
     localparam op_store     = 5'h08;
     localparam op_arith     = 5'h0C;
-    localparam op_tx        = 5'h1F;
+    localparam op_branch    = 5'h18;
+    localparam op_tx        = 5'h03;
 
     localparam srcb_i       = 3'b010;
     localparam srcb_s       = 3'b011;
@@ -92,6 +99,7 @@ module main_controller(clk, rstn, instr,
         opcode == op_load       ? srcb_i
       : opcode == op_arith_imm  ? srcb_i
       : opcode == op_store      ? srcb_s
+      : opcode == op_branch     ? srcb_sb
                                 : srcb_undef;
 
     always @(posedge clk) begin
@@ -124,9 +132,10 @@ module main_controller(clk, rstn, instr,
                 memwrite <= 0;  // s_memwrite
                 tx_ready <= 0;  // s_transimt
             end else if (state == s_init
-             || state == s_nextpc) begin
+             || state == s_nextpc
+             || state == s_branch) begin
                 state <= s_fetch0;
-                pcwrite <= 0;   // s_nextpc
+                pcwrite <= 0;   // s_nextpc,s_branch
                 iord <= 0;
             end else if (state == s_fetch0) begin
                 state <= s_fetch1;
@@ -161,6 +170,12 @@ module main_controller(clk, rstn, instr,
                     alucontrol <= funct3;
                     porm <= instr[30];
                     lora <= instr[30];
+                end else if (opcode == op_branch) begin
+                    state <= s_compare;
+                    alusrca <= 1;
+                    alusrcb <= 3'b000;
+                    alucontrol <= {1'b0, funct3[2:1]};
+                    porm <= 1;
                 end else begin
                     state <= s_halt;
                 end
@@ -182,6 +197,13 @@ module main_controller(clk, rstn, instr,
                 state <= s_alu_wb;
                 memtoreg <= 0;
                 regwrite <= 1;
+            end else if (state == s_compare) begin
+                state <= s_branch;
+                alusrca <= 0;
+                alusrcb <= (aluzero ^ funct3[0] ^ (alucontrol != 0)) ? imm : 3'b001;
+                alucontrol <= alu_add_sub;
+                porm <= 0;
+                pcwrite <= 1;
             end
         end
     end
@@ -223,6 +245,7 @@ module core (clk, rstn,
     reg [31:0] a, b;
     wire [31:0] srca, srcb;
     wire [31:0] aluresult;
+    wire aluzero;
 
     localparam reg_zero = 5'h00;
     localparam reg_gp   = 5'h03;
@@ -252,9 +275,9 @@ module core (clk, rstn,
                           : 0;
     assign sdata = a[7:0];
 
-    alu alu_0(srca, srcb, alucontrol, porm, lora, aluresult);
+    alu alu_0(srca, srcb, alucontrol, porm, lora, aluresult, aluzero);
     main_controller main_controller_0(clk, rstn, instr,
-        pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, alusrca, alusrcb, alucontrol, porm, lora, tx_ready);
+        pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, alusrca, alusrcb, alucontrol, porm, lora, aluzero, tx_ready);
 
     always @(posedge clk) begin
         if (~rstn) begin
