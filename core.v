@@ -43,10 +43,12 @@ module main_controller(clk, rstn, instr,
     input wire clk, rstn;
     input wire [31:0] instr;
     input wire aluzero;
-    output pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, alusrca, porm, lora, tx_ready;
+    output pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, porm, lora, tx_ready;
+    output [1:0] alusrca;
     output [2:0] alusrcb, alucontrol;
 
-    reg pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, alusrca, porm, lora, tx_ready;
+    reg pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, porm, lora, tx_ready;
+    reg [1:0] alusrca;
     reg [2:0] alusrcb, alucontrol;
     reg [4:0] state;
     wire [4:0] opcode;
@@ -67,13 +69,17 @@ module main_controller(clk, rstn, instr,
     localparam s_ari_exec   = 5'h0B;
     localparam s_compare    = 5'h0C;
     localparam s_branch     = 5'h0D;
+    localparam s_lui_read   = 5'h0E;
+    localparam s_auipc_read = 5'h0F;
     localparam s_halt       = 5'h1E;
     localparam s_init       = 5'h1F;
 
     localparam op_load      = 5'h00;
     localparam op_arith_imm = 5'h04;
+    localparam op_auipc     = 5'h05;
     localparam op_store     = 5'h08;
     localparam op_arith     = 5'h0C;
+    localparam op_lui       = 5'h0D;
     localparam op_branch    = 5'h18;
     localparam op_tx        = 5'h03;
 
@@ -98,7 +104,9 @@ module main_controller(clk, rstn, instr,
     assign imm =
         opcode == op_load       ? srcb_i
       : opcode == op_arith_imm  ? srcb_i
+      : opcode == op_auipc      ? srcb_u
       : opcode == op_store      ? srcb_s
+      : opcode == op_lui        ? srcb_u
       : opcode == op_branch     ? srcb_sb
                                 : srcb_undef;
 
@@ -124,7 +132,7 @@ module main_controller(clk, rstn, instr,
              || state == s_alu_wb) begin
                 state <= s_nextpc;
                 pcwrite <= 1;
-                alusrca <= 0;
+                alusrca <= 2'b00;
                 alusrcb <= 3'b001;
                 alucontrol <= alu_add_sub;
                 porm <= 0;
@@ -149,7 +157,7 @@ module main_controller(clk, rstn, instr,
                 end else if (opcode == op_load
                           || opcode == op_store) begin
                     state <= s_memaddr;
-                    alusrca <= 1;
+                    alusrca <= 2'b01;
                     alusrcb <= imm;
                     alucontrol <= alu_add_sub;
                     porm <= 0;
@@ -158,24 +166,36 @@ module main_controller(clk, rstn, instr,
                     tx_ready <= 1;
                 end else if (opcode == op_arith_imm) begin
                     state <= s_arimm_exec;
-                    alusrca <= 1;
+                    alusrca <= 2'b01;
                     alusrcb <= imm;
                     alucontrol <= funct3;
                     porm <= 0;
                     lora <= instr[30];
                 end else if (opcode == op_arith) begin
                     state <= s_ari_exec;
-                    alusrca <= 1;
-                    alusrcb <= 0;
+                    alusrca <= 2'b01;
+                    alusrcb <= 3'b000;
                     alucontrol <= funct3;
                     porm <= instr[30];
                     lora <= instr[30];
                 end else if (opcode == op_branch) begin
                     state <= s_compare;
-                    alusrca <= 1;
+                    alusrca <= 2'b01;
                     alusrcb <= 3'b000;
                     alucontrol <= {1'b0, funct3[2:1]};
                     porm <= 1;
+                end else if (opcode == op_lui) begin
+                    state <= s_lui_read;
+                    alusrca <= 2'b10;
+                    alusrcb <= imm;
+                    alucontrol <= alu_add_sub;
+                    porm <= 0;
+                end else if (opcode == op_auipc) begin
+                    state <= s_auipc_read;
+                    alusrca <= 2'b00;
+                    alusrcb <= imm;
+                    alucontrol <= alu_add_sub;
+                    porm <= 0;
                 end else begin
                     state <= s_halt;
                 end
@@ -193,13 +213,15 @@ module main_controller(clk, rstn, instr,
                 memtoreg <= 1;
                 regwrite <= 1;
             end else if (state == s_arimm_exec
-                      || state == s_ari_exec) begin
+                      || state == s_ari_exec
+                      || state == s_lui_read
+                      || state == s_auipc_read) begin
                 state <= s_alu_wb;
                 memtoreg <= 0;
                 regwrite <= 1;
             end else if (state == s_compare) begin
                 state <= s_branch;
-                alusrca <= 0;
+                alusrca <= 2'b00;
                 alusrcb <= (aluzero ^ funct3[0] ^ (alucontrol != 0)) ? imm : 3'b001;
                 alucontrol <= alu_add_sub;
                 porm <= 0;
@@ -230,7 +252,8 @@ module core (clk, rstn,
     reg [31:0] x [31:0]; // registers
     reg [8:0] pc;
     // controll
-    wire pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, alusrca, porm, lora;
+    wire pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, porm, lora;
+    wire [1:0] alusrca;
     wire [2:0] alusrcb;
     wire [2:0] alucontrol;
     // outputs
@@ -263,7 +286,10 @@ module core (clk, rstn,
     assign U_imm = {instr[31:12], 12'b0};
     assign SB_imm = {{19{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0};
     assign UJ_imm = {{11{instr[31]}}, instr[31], instr[19:12], instr[20], instr[30:21], 1'b0};
-    assign srca = alusrca ? a : {23'b0, pc};
+    assign srca =
+        alusrca == 2'b00 ? {23'b0, pc}
+      : alusrca == 2'b01 ? a
+                         : 0;
     assign srcb =
         alusrcb == 3'b000 ? b
       : alusrcb == 3'b001 ? 4
