@@ -79,13 +79,13 @@ module main_controller(clk, rstn, instr,
     localparam op_load      = 5'h00;
     localparam op_arith_imm = 5'h04;
     localparam op_auipc     = 5'h05;
+    localparam op_tx        = 5'h06;
     localparam op_store     = 5'h08;
     localparam op_arith     = 5'h0C;
     localparam op_lui       = 5'h0D;
     localparam op_branch    = 5'h18;
     localparam op_jalr      = 5'h19;
     localparam op_jal       = 5'h1B;
-    localparam op_tx        = 5'h03;
 
     localparam srcb_i       = 3'b010;
     localparam srcb_s       = 3'b011;
