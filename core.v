@@ -71,6 +71,8 @@ module main_controller(clk, rstn, instr,
     localparam s_branch     = 5'h0D;
     localparam s_lui_read   = 5'h0E;
     localparam s_auipc_read = 5'h0F;
+    localparam s_link_rd    = 5'h10;
+    localparam s_jump       = 5'h11;
     localparam s_halt       = 5'h1E;
     localparam s_init       = 5'h1F;
 
@@ -81,6 +83,8 @@ module main_controller(clk, rstn, instr,
     localparam op_arith     = 5'h0C;
     localparam op_lui       = 5'h0D;
     localparam op_branch    = 5'h18;
+    localparam op_jalr      = 5'h19;
+    localparam op_jal       = 5'h1B;
     localparam op_tx        = 5'h03;
 
     localparam srcb_i       = 3'b010;
@@ -108,6 +112,8 @@ module main_controller(clk, rstn, instr,
       : opcode == op_store      ? srcb_s
       : opcode == op_lui        ? srcb_u
       : opcode == op_branch     ? srcb_sb
+      : opcode == op_jalr       ? srcb_i
+      : opcode == op_jal        ? srcb_uj
                                 : srcb_undef;
 
     always @(posedge clk) begin
@@ -141,9 +147,11 @@ module main_controller(clk, rstn, instr,
                 tx_ready <= 0;  // s_transimt
             end else if (state == s_init
              || state == s_nextpc
-             || state == s_branch) begin
+             || state == s_branch
+             || state == s_jump) begin
                 state <= s_fetch0;
-                pcwrite <= 0;   // s_nextpc,s_branch
+                pcwrite <= 0;   // s_nextpc,s_branch,s_jump
+                regwrite <= 0;  // s_jump
                 iord <= 0;
             end else if (state == s_fetch0) begin
                 state <= s_fetch1;
@@ -196,6 +204,13 @@ module main_controller(clk, rstn, instr,
                     alusrcb <= imm;
                     alucontrol <= alu_add_sub;
                     porm <= 0;
+                end else if (opcode == op_jal
+                          || opcode == op_jalr) begin
+                    state <= s_link_rd;
+                    alusrca <= 2'b00;
+                    alusrcb <= 3'b001;
+                    alucontrol <= alu_add_sub;
+                    porm <= 0;
                 end else begin
                     state <= s_halt;
                 end
@@ -225,6 +240,14 @@ module main_controller(clk, rstn, instr,
                 alusrcb <= (aluzero ^ funct3[0] ^ (alucontrol != 0)) ? imm : 3'b001;
                 alucontrol <= alu_add_sub;
                 porm <= 0;
+                pcwrite <= 1;
+            end else if (state == s_link_rd) begin
+                state <= s_jump;
+                alusrca <= opcode == op_jal ? 2'b00 : 2'b01;
+                alusrcb <= imm;
+                alucontrol <= alu_add_sub;
+                porm <= 0;
+                regwrite <= 1;
                 pcwrite <= 1;
             end
         end
