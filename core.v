@@ -254,12 +254,13 @@ module main_controller(clk, rstn, instr,
     end
 endmodule
 
-module core (clk, rstn, 
+module core #(parameter MEM = 10) (
+    clk, rstn, 
     memwe, memaddr, memdin, memdout,
     a0out, sdata, tx_ready);
     input wire clk, rstn;
     output memwe;
-    output [7:0] memaddr;
+    output [MEM-1:0] memaddr;
     output [31:0] memdin;
     input wire [31:0] memdout;
     output [7:0] a0out;
@@ -268,12 +269,12 @@ module core (clk, rstn,
 
     // block RAM
     wire memwe;
-    wire [7:0] memaddr;
+    wire [MEM-1:0] memaddr;
     wire [31:0] memdin;
     wire [7:0] a0out;
     // registers
     reg [31:0] x [31:0]; // registers
-    reg [8:0] pc;
+    reg [MEM-1:0] pc;
     // controll
     wire pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, porm, lora;
     wire [1:0] alusrca;
@@ -294,12 +295,15 @@ module core (clk, rstn,
     wire aluzero;
 
     localparam reg_zero = 5'h00;
+    localparam reg_sp   = 5'h02;
     localparam reg_gp   = 5'h03;
+    localparam reg_hp   = 5'h05;
+    localparam reg_a0   = 5'h0A;
 
     assign memwe = memwrite;
-    assign memaddr = iord ? aluout[9:2] : {1'b0, pc[8:2]};
+    assign memaddr = iord ? aluout[MEM+1:2] : {2'b00, pc[MEM-1:2]};
     assign memdin = b;
-    assign a0out = x[10][7:0];
+    assign a0out = x[reg_a0][7:0];
     assign rs1 = instr[19:15];
     assign rs2 = instr[24:20];
     assign rd = instr[11:7];
@@ -310,7 +314,7 @@ module core (clk, rstn,
     assign SB_imm = {{19{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0};
     assign UJ_imm = {{11{instr[31]}}, instr[31], instr[19:12], instr[20], instr[30:21], 1'b0};
     assign srca =
-        alusrca == 2'b00 ? {23'b0, pc}
+        alusrca == 2'b00 ? {22'b0, pc}
       : alusrca == 2'b01 ? a
                          : 0;
     assign srcb =
@@ -331,14 +335,16 @@ module core (clk, rstn,
     always @(posedge clk) begin
         if (~rstn) begin
             x[reg_zero] <= 32'h0;
-            x[reg_gp] <= 32'h200;
-            pc <= 0;
+            x[reg_sp] <= 3 << (MEM - 2);
+            x[reg_gp] <= 1 << (MEM - 2);
+            x[reg_hp] <= 2 << (MEM - 2);
+            pc <= 128;
             instr <= 0;
             a <= 0;
             b <= 0;
             aluout <= 0;
         end else begin
-            pc <= pcwrite ? aluresult[8:0] : pc;
+            pc <= pcwrite ? aluresult[MEM-1:0] : pc;
             instr <= irwrite ? memdout : instr;
             a <= x[rs1];
             b <= x[rs2];
