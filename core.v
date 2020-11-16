@@ -51,7 +51,7 @@ module main_controller(clk, rstn, instr,
     reg [1:0] alusrca;
     reg [2:0] alusrcb, alucontrol;
     reg [4:0] state;
-    wire [4:0] opcode;
+    wire [4:0] opcode, rd;
     wire [2:0] funct3;
     wire [2:0] imm;
 
@@ -104,6 +104,7 @@ module main_controller(clk, rstn, instr,
     localparam alu_and      = 3'b111;
 
     assign opcode = instr[6:2];
+    assign rd = instr[11:7];
     assign funct3 = instr[14:12];
     assign imm =
         opcode == op_load       ? srcb_i
@@ -247,7 +248,7 @@ module main_controller(clk, rstn, instr,
                 alusrcb <= imm;
                 alucontrol <= alu_add_sub;
                 porm <= 0;
-                regwrite <= 1;
+                regwrite <= rd != 0;
                 pcwrite <= 1;
             end
         end
