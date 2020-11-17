@@ -38,16 +38,16 @@ module alu (srca, srcb, control, porm, lora, res, zero);
 endmodule
 
 module main_controller(clk, rstn, instr,
-    pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, 
+    pcwrite, memwrite, memtoreg, regwrite, 
     alusrca, alusrcb, alucontrol, porm, lora, aluzero, tx_ready);
     input wire clk, rstn;
     input wire [31:0] instr;
     input wire aluzero;
-    output pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, porm, lora, tx_ready;
+    output pcwrite, memwrite, memtoreg, regwrite, porm, lora, tx_ready;
     output [1:0] alusrca;
     output [2:0] alusrcb, alucontrol;
 
-    reg pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, porm, lora, tx_ready;
+    reg pcwrite, memwrite, memtoreg, regwrite, porm, lora, tx_ready;
     reg [1:0] alusrca;
     reg [2:0] alusrcb, alucontrol;
     reg [4:0] state;
@@ -56,8 +56,7 @@ module main_controller(clk, rstn, instr,
     wire [2:0] imm;
 
     localparam s_nextpc     = 5'h00;
-    localparam s_fetch0     = 5'h01;
-    localparam s_fetch1     = 5'h02;
+    localparam s_fetch      = 5'h01;
     localparam s_decode     = 5'h03;
     localparam s_memaddr    = 5'h04;
     localparam s_memread    = 5'h05;
@@ -120,9 +119,7 @@ module main_controller(clk, rstn, instr,
     always @(posedge clk) begin
         if (~rstn) begin
             pcwrite <= 0;
-            iord <= 0;
             memwrite <= 0;
-            irwrite <= 0;
             memtoreg <= 0;
             regwrite <= 0;
             alusrca <= 0;
@@ -150,16 +147,11 @@ module main_controller(clk, rstn, instr,
              || state == s_nextpc
              || state == s_branch
              || state == s_jump) begin
-                state <= s_fetch0;
+                state <= s_fetch;
                 pcwrite <= 0;   // s_nextpc,s_branch,s_jump
                 regwrite <= 0;  // s_jump
-                iord <= 0;
-            end else if (state == s_fetch0) begin
-                state <= s_fetch1;
-                irwrite <= 1;
-            end else if (state == s_fetch1) begin
+            end else if (state == s_fetch) begin
                 state <= s_decode;
-                irwrite <= 0;   // s_fetch1
             end else if (state == s_decode) begin
                 if (instr == 0) begin
                     state <= s_halt;
@@ -218,11 +210,9 @@ module main_controller(clk, rstn, instr,
             end else if (state == s_memaddr) begin
                 if (opcode == op_load) begin
                     state <= s_memread;
-                    iord <= 1;
                 end else if (opcode == op_store) begin
                     state <= s_memwrite;
                     memwrite <= 1;
-                    iord <= 1;
                 end
             end else if (state == s_memread) begin
                 state <= s_writeback;
@@ -257,12 +247,15 @@ endmodule
 
 module core #(parameter MEM = 10) (
     clk, rstn, 
+    pcaddr, instr,
     memwe, memaddr, memdin, memdout,
     a0out, sdata, tx_ready);
     input wire clk, rstn;
     output memwe;
+    output [MEM-3:0] pcaddr;
     output [MEM-1:0] memaddr;
     output [31:0] memdin;
+    input wire [31:0] instr;
     input wire [31:0] memdout;
     output [7:0] a0out;
     output [7:0] sdata;
@@ -270,6 +263,7 @@ module core #(parameter MEM = 10) (
 
     // block RAM
     wire memwe;
+    wire [MEM-3:0] pcaddr;
     wire [MEM-1:0] memaddr;
     wire [31:0] memdin;
     wire [7:0] a0out;
@@ -277,7 +271,7 @@ module core #(parameter MEM = 10) (
     reg [31:0] x [31:0]; // registers
     reg [MEM-1:0] pc;
     // controll
-    wire pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, porm, lora;
+    wire pcwrite, memwrite, memtoreg, regwrite, porm, lora;
     wire [1:0] alusrca;
     wire [2:0] alusrcb;
     wire [2:0] alucontrol;
@@ -286,7 +280,6 @@ module core #(parameter MEM = 10) (
     wire [7:0] sdata;
     wire tx_ready;
 
-    reg [31:0] instr;
     wire [4:0] rs1, rs2, rd;
     wire [31:0] I_imm, S_imm, U_imm, SB_imm, UJ_imm;
     wire [31:0] writedata;
@@ -302,7 +295,8 @@ module core #(parameter MEM = 10) (
     localparam reg_a0   = 5'h0A;
 
     assign memwe = memwrite;
-    assign memaddr = iord ? aluout[MEM+1:2] : {2'b00, pc[MEM-1:2]};
+    assign pcaddr = pc[MEM-1:2];
+    assign memaddr = aluout[MEM+1:2];
     assign memdin = b;
     assign a0out = x[reg_a0][7:0];
     assign rs1 = instr[19:15];
@@ -331,22 +325,20 @@ module core #(parameter MEM = 10) (
 
     alu alu_0(srca, srcb, alucontrol, porm, lora, aluresult, aluzero);
     main_controller main_controller_0(clk, rstn, instr,
-        pcwrite, iord, memwrite, irwrite, memtoreg, regwrite, alusrca, alusrcb, alucontrol, porm, lora, aluzero, tx_ready);
+        pcwrite, memwrite, memtoreg, regwrite, alusrca, alusrcb, alucontrol, porm, lora, aluzero, tx_ready);
 
     always @(posedge clk) begin
         if (~rstn) begin
             x[reg_zero] <= 32'h0;
-            x[reg_sp] <= 3 << (MEM - 2);
-            x[reg_gp] <= 1 << (MEM - 2);
-            x[reg_hp] <= 2 << (MEM - 2);
+            x[reg_sp] <= 2 << (MEM - 2);
+            x[reg_gp] <= 0;
+            x[reg_hp] <= 1 << (MEM - 2);
             pc <= 128;
-            instr <= 0;
             a <= 0;
             b <= 0;
             aluout <= 0;
         end else begin
             pc <= pcwrite ? aluresult[MEM-1:0] : pc;
-            instr <= irwrite ? memdout : instr;
             a <= x[rs1];
             b <= x[rs2];
             aluout <= aluresult;
