@@ -43,13 +43,13 @@ module main_controller(clk, rstn, instr,
     input wire clk, rstn;
     input wire [31:0] instr;
     input wire aluzero;
-    output pcwrite, memwrite, memtoreg, regwrite, porm, lora, tx_ready;
+    output pcwrite, memwrite, regwrite, porm, lora, tx_ready;
     output [1:0] alusrca;
-    output [2:0] alusrcb, alucontrol;
+    output [2:0] memtoreg, alusrcb, alucontrol;
 
-    reg pcwrite, memwrite, memtoreg, regwrite, porm, lora, tx_ready;
+    reg pcwrite, memwrite, regwrite, porm, lora, tx_ready;
     reg [1:0] alusrca;
-    reg [2:0] alusrcb, alucontrol;
+    reg [2:0] memtoreg, alusrcb, alucontrol;
     reg [4:0] state;
     wire [4:0] opcode, rd;
     wire [2:0] funct3;
