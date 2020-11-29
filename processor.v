@@ -18,6 +18,6 @@ module processor #(parameter MEM = 10) (clk, rstn, a0out, txd);
 
     ram_prog ram_prog_0(clk, pc, instr);
     ram_data ram_data_0(clk, we, addr, din, dout);
-    uart_tx uart_tx_0(clk, rstn, sdata, tx_ready, txd);
+    uart_tx_with_buf uart_tx_0(clk, rstn, sdata, tx_ready, txd);
     core core_0(clk, rstn, pc, instr, we, addr, din, dout, a0out, sdata, tx_ready);
 endmodule

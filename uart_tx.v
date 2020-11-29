@@ -2,15 +2,14 @@
 `default_nettype none
 
 module uart_tx #(CLK_PER_BIT = 868) (
-    clk, rstn, sdata, tx_ready, txd);
+    clk, rstn, sdata, tx_ready, txd, next);
     input wire clk, rstn;
     input wire [7:0] sdata;
     input wire tx_ready;
-    output txd;    
+    output txd, next;
     
-    reg txd;
-    reg [7:0] txbuf [255:0];
-    reg [7:0] stack_bottom, stack_top;
+    reg txd, next;
+    reg [7:0] txbuf;
     reg [3:0] status;
     reg [31:0] counter;
     
@@ -25,59 +24,73 @@ module uart_tx #(CLK_PER_BIT = 868) (
     localparam s_idle       = 4'h8;
     localparam s_start_bit  = 4'h9;
     localparam s_stop_bit   = 4'hA;
+    localparam s_ready      = 4'hB;
 
     always @(posedge clk) begin
         if (~rstn) begin
             txd <= 1;
-            stack_bottom <= 0;
-            stack_top <= 0;
+            next <= 1;
+            txbuf <= 0;
             status <= s_idle;
             counter <= 0;
         end else begin
-            // save input to buffer
-            if (tx_ready) begin
-                txbuf[stack_top] <= sdata;
-                stack_top <= stack_top + 1;
-            end
-
             // send output in UART
             counter <= counter == CLK_PER_BIT ? 0 : counter + 1;
-            if (counter == 0 && stack_bottom != stack_top) begin
-                if (status == s_idle) begin
+            if (tx_ready) begin
+                status <= s_ready;
+                txbuf <= sdata;
+                next <= 0;
+            end else if (counter == 0) begin
+                if (status == s_ready) begin
                     status <= s_start_bit;
                     txd <= 0;
                 end else if (status == s_start_bit) begin
                     status <= s_bit_0;
-                    txd <= txbuf[stack_bottom][0];
+                    txd <= txbuf[0];
                 end else if (status == s_bit_0) begin
                     status <= s_bit_1;
-                    txd <= txbuf[stack_bottom][1];
+                    txd <= txbuf[1];
                 end else if (status == s_bit_1) begin
                     status <= s_bit_2;
-                    txd <= txbuf[stack_bottom][2];
+                    txd <= txbuf[2];
                 end else if (status == s_bit_2) begin
                     status <= s_bit_3;
-                    txd <= txbuf[stack_bottom][3];
+                    txd <= txbuf[3];
                 end else if (status == s_bit_3) begin
                     status <= s_bit_4;
-                    txd <= txbuf[stack_bottom][4];
+                    txd <= txbuf[4];
                 end else if (status == s_bit_4) begin
                     status <= s_bit_5;
-                    txd <= txbuf[stack_bottom][5];
+                    txd <= txbuf[5];
                 end else if (status == s_bit_5) begin
                     status <= s_bit_6;
-                    txd <= txbuf[stack_bottom][6];
+                    txd <= txbuf[6];
                 end else if (status == s_bit_6) begin
                     status <= s_bit_7;
-                    txd <= txbuf[stack_bottom][7];
+                    txd <= txbuf[7];
                 end else if (status == s_bit_7) begin
                     status <= s_stop_bit;
                     txd <= 1;
                 end else if (status == s_stop_bit) begin
                     status <= s_idle;
-                    stack_bottom <= stack_bottom + 1;
+                    next <= 1;
                 end
             end
         end
     end
+endmodule
+
+
+module uart_tx_with_buf (clk, rstn, sdata, tx_ready, txd);
+    input wire clk, rstn, tx_ready;
+    input wire [7:0] sdata;
+
+    output txd;
+
+    wire txd;
+    wire next, dout_ready;
+    wire [7:0] dout;
+
+    uart_buf uart_buf_0(clk, rstn, sdata, tx_ready, next, dout, dout_ready);
+    uart_tx uart_tx_0(clk, rstn, dout, dout_ready, txd, next);
 endmodule
