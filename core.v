@@ -138,9 +138,11 @@ module main_controller(clk, rstn, instr,
             alusrca <= 0;
             alusrcb <= 0;
             alucontrol <= 0;
+            misccontrol <= 0;
             porm <= 0;
             lora <= 0;
             tx_ready <= 0;
+            next <= 0;
             state <= s_init;
         end else begin
             if (state == s_writeback

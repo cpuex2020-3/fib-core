@@ -102,7 +102,7 @@ module uart_rx_with_buf (clk, rstn, rxd, next, rdata, rx_ready);
     output [7:0] rdata;
 
     wire ferr, din_ready, rx_ready;
-    wire [7:0] din;
+    wire [7:0] din, rdata;
 
     uart_buf uart_buf_0(clk, rstn, din, din_ready, next, rdata, rx_ready);
     uart_rx uart_rx_0(clk, rstn, rxd, din, din_ready, ferr);
