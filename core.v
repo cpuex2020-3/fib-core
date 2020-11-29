@@ -40,15 +40,16 @@ endmodule
 module main_controller(clk, rstn, instr,
     pcwrite, memwrite, memtoreg, regwrite, 
     alusrca, alusrcb, alucontrol, porm, lora, aluzero, 
-    misccontrol, tx_ready);
+    misccontrol, 
+    rx_ready, tx_ready, next);
     input wire clk, rstn;
     input wire [31:0] instr;
-    input wire aluzero;
-    output pcwrite, memwrite, regwrite, porm, lora, tx_ready;
+    input wire aluzero, rx_ready;
+    output pcwrite, memwrite, regwrite, porm, lora, tx_ready, next;
     output [1:0] alusrca;
     output [2:0] memtoreg, alusrcb, alucontrol, misccontrol;
 
-    reg pcwrite, memwrite, regwrite, porm, lora, tx_ready;
+    reg pcwrite, memwrite, regwrite, porm, lora, tx_ready, next;
     reg [1:0] alusrca;
     reg [2:0] memtoreg, alusrcb, alucontrol, misccontrol;
     reg [4:0] state;
@@ -73,12 +74,15 @@ module main_controller(clk, rstn, instr,
     localparam s_auipc_read = 5'h0F;
     localparam s_link_rd    = 5'h10;
     localparam s_jump       = 5'h11;
+    localparam s_recv_wait  = 5'h12;
+    localparam s_recv_wb    = 5'h13;
     localparam s_misc_exec  = 5'h14;
     localparam s_misc_wb    = 5'h15;
     localparam s_halt       = 5'h1E;
     localparam s_init       = 5'h1F;
 
     localparam op_load      = 5'h00;
+    localparam op_rx        = 5'h02;
     localparam op_arith_imm = 5'h04;
     localparam op_auipc     = 5'h05;
     localparam op_tx        = 5'h06;
@@ -93,6 +97,7 @@ module main_controller(clk, rstn, instr,
     localparam mem2reg_alu  = 3'b000;
     localparam mem2reg_misc = 3'b010;
     localparam mem2reg_mem  = 3'b011;
+    localparam mem2reg_rx   = 3'b100;
 
     localparam srcb_i       = 3'b010;
     localparam srcb_s       = 3'b011;
@@ -142,7 +147,8 @@ module main_controller(clk, rstn, instr,
              || state == s_memwrite
              || state == s_transmit
              || state == s_alu_wb
-             || state == s_misc_wb) begin
+             || state == s_misc_wb
+             || state == s_recv_wb) begin
                 state <= s_nextpc;
                 pcwrite <= 1;
                 alusrca <= 2'b00;
@@ -171,6 +177,9 @@ module main_controller(clk, rstn, instr,
                     alusrcb <= imm;
                     alucontrol <= alu_add_sub;
                     porm <= 0;
+                end else if (opcode == op_rx) begin
+                    state <= s_recv_wait;
+                    next <= 1;
                 end else if (opcode == op_tx) begin
                     state <= s_transmit;
                     tx_ready <= 1;
@@ -258,6 +267,13 @@ module main_controller(clk, rstn, instr,
                 porm <= 0;
                 regwrite <= rd != 0;
                 pcwrite <= 1;
+            end else if (state == s_recv_wait) begin
+                if (rx_ready) begin
+                    state <= s_recv_wb;
+                    next <= 0;
+                    memtoreg <= mem2reg_rx;
+                    regwrite <= 1;
+                end
             end
         end
     end
@@ -267,7 +283,8 @@ module core #(parameter MEM = 10) (
     clk, rstn, 
     pcaddr, instr,
     memwe, memaddr, memdin, memdout,
-    a0out, sdata, tx_ready);
+    a0out, 
+    rdata, rx_ready, next, sdata, tx_ready);
     input wire clk, rstn;
     output memwe;
     output [MEM-3:0] pcaddr;
@@ -275,9 +292,11 @@ module core #(parameter MEM = 10) (
     output [31:0] memdin;
     input wire [31:0] instr;
     input wire [31:0] memdout;
+    input wire [7:0] rdata;
+    input wire rx_ready;
     output [7:0] a0out;
     output [7:0] sdata;
-    output tx_ready;
+    output tx_ready, next;
 
     // block RAM
     wire memwe;
@@ -295,8 +314,9 @@ module core #(parameter MEM = 10) (
     wire [2:0] alucontrol, misccontrol;
     // units
     reg [31:0] aluout, miscout;
+    // uart
     wire [7:0] sdata;
-    wire tx_ready;
+    wire tx_ready, next;
 
     wire [4:0] rs1, rs2, rd;
     wire [31:0] I_imm, S_imm, U_imm, SB_imm, UJ_imm;
@@ -323,7 +343,8 @@ module core #(parameter MEM = 10) (
     assign writedata =
         memtoreg == 3'b000 ? aluout
       : memtoreg == 3'b010 ? miscout
-                           : memdout;
+      : memtoreg == 3'b011 ? memdout
+                           : {24'b0, rdata};
     assign I_imm = {{20{instr[31]}}, instr[31:20]};
     assign S_imm = {{20{instr[31]}}, instr[31:25], instr[11:7]};
     assign U_imm = {instr[31:12], 12'b0};
@@ -347,7 +368,8 @@ module core #(parameter MEM = 10) (
     alu alu_0(srca, srcb, alucontrol, porm, lora, aluresult, aluzero);
     misc misc_0(srca, srcb, misccontrol, miscresult);
     main_controller main_controller_0(clk, rstn, instr,
-        pcwrite, memwrite, memtoreg, regwrite, alusrca, alusrcb, alucontrol, porm, lora, aluzero, misccontrol, tx_ready);
+        pcwrite, memwrite, memtoreg, regwrite, alusrca, alusrcb, alucontrol, porm, lora, aluzero, misccontrol, 
+        rx_ready, tx_ready, next);
 
     always @(posedge clk) begin
         if (~rstn) begin
