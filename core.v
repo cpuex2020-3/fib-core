@@ -83,6 +83,7 @@ module main_controller(clk, rstn, instr,
     localparam s_misc_wb    = 5'h15;
     localparam s_fpu_exec   = 5'h16;
     localparam s_fpu_wb     = 5'h17;
+    localparam s_fpu_reg    = 5'h18;
     localparam s_halt       = 5'h1E;
     localparam s_init       = 5'h1F;
 
@@ -198,6 +199,7 @@ module main_controller(clk, rstn, instr,
                 pcwrite <= 0;   // s_nextpc,s_branch,s_jump
                 regwrite <= 0;  // s_jump
             end else if (state == s_fetch) begin
+                iorf <= 3'h0;
                 state <= s_decode;
             end else if (state == s_decode) begin
                 if (instr == 0) begin
@@ -207,7 +209,6 @@ module main_controller(clk, rstn, instr,
                           || opcode == op_fload
                           || opcode == op_fstore) begin
                     state <= s_memaddr;
-                    iorf[0] <= 0;
                     alusrca <= 2'b01;
                     alusrcb <= imm;
                     alucontrol <= alu_add_sub;
@@ -220,7 +221,6 @@ module main_controller(clk, rstn, instr,
                     tx_ready <= 1;
                 end else if (opcode == op_arith_imm) begin
                     state <= s_arimm_exec;
-                    iorf[0] <= 0;
                     alusrca <= 2'b01;
                     alusrcb <= imm;
                     alucontrol <= funct3;
@@ -228,7 +228,6 @@ module main_controller(clk, rstn, instr,
                     lora <= instr[30];
                 end else if (opcode == op_arith) begin
                     state <= s_ari_exec;
-                    iorf[1:0] <= 2'b00;
                     alusrca <= 2'b01;
                     alusrcb <= 3'b000;
                     alucontrol <= funct3;
@@ -236,12 +235,11 @@ module main_controller(clk, rstn, instr,
                     lora <= instr[30];
                 end else if (opcode == op_misc) begin
                     state <= s_misc_exec;
-                    iorf[1:0] <= 2'b00;
                     alusrca <= 2'b01;
                     alusrcb <= 3'b000;
                     misccontrol <= funct3;
                 end else if (opcode == op_farith) begin
-                    state <= s_fpu_exec;
+                    state <= s_fpu_reg;
                     iorf[0] <= funct7 == fpu_cvt_x_f ? 0 : 1;
                     iorf[1] <= 1;
                     alusrca <= 2'b01;
@@ -249,7 +247,6 @@ module main_controller(clk, rstn, instr,
                     misccontrol <= funct3;
                 end else if (opcode == op_branch) begin
                     state <= s_compare;
-                    iorf[1:0] <= 2'b00;
                     alusrca <= 2'b01;
                     alusrcb <= 3'b000;
                     alucontrol <= {1'b0, funct3[2:1]};
@@ -296,17 +293,17 @@ module main_controller(clk, rstn, instr,
                       || state == s_lui_read
                       || state == s_auipc_read) begin
                 state <= s_alu_wb;
-                iorf[2] <= 0;
                 memtoreg <= mem2reg_alu;
                 regwrite <= 1;
             end else if (state == s_misc_exec) begin
                 state <= s_misc_wb;
-                iorf[2] <= 0;
                 memtoreg <= mem2reg_misc;
                 regwrite <= 1;
-            end else if (state == s_misc_exec) begin
+            end else if (state == s_fpu_reg) begin
                 iorf[2] <= (funct7 == fpu_cvt_f_x || funct7 == fpu_mv_f_x) ? 0 : 1;
                 memtoreg <= mem2reg_fpu;
+                state <= s_fpu_exec;
+            end else if (state == s_fpu_exec) begin
                 if (fpu_count == fpu_maxcount) begin
                     state <= s_fpu_wb;
                     regwrite <= 1;
@@ -323,8 +320,6 @@ module main_controller(clk, rstn, instr,
                 pcwrite <= 1;
             end else if (state == s_link_rd) begin
                 state <= s_jump;
-                iorf[0] <= 0;
-                iorf[2] <= 0;
                 alusrca <= opcode == op_jal ? 2'b00 : 2'b01;
                 alusrcb <= imm;
                 alucontrol <= alu_add_sub;
@@ -334,7 +329,6 @@ module main_controller(clk, rstn, instr,
             end else if (state == s_recv_wait) begin
                 if (rx_ready) begin
                     state <= s_recv_wb;
-                    iorf[2] <= 0;
                     next <= 0;
                     memtoreg <= mem2reg_rx;
                     regwrite <= 1;
