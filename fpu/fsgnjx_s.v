@@ -1,7 +1,7 @@
 `timescale 1ns / 100ps
 `default_nettype none
 
-module fsgnjx_s (x, y);
+module fsgnjx_s (x1, x2, y);
     input wire [31:0] x1, x2;
     output [31:0] y;
 
