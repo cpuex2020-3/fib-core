@@ -211,6 +211,7 @@ module main_controller(clk, rstn, instr,
                           || opcode == op_fload
                           || opcode == op_fstore) begin
                     state <= s_memaddr;
+                    iorf[1] <= opcode == op_store ? 0 : 1;
                     alusrca <= 2'b01;
                     alusrcb <= imm;
                     alucontrol <= alu_add_sub;
@@ -282,7 +283,6 @@ module main_controller(clk, rstn, instr,
                 end else if (opcode == op_store
                           || opcode == op_fstore) begin
                     state <= s_memwrite;
-                    iorf[1] <= opcode == op_store ? 0 : 1;
                     memwrite <= 1;
                 end
             end else if (state == s_memread) begin
