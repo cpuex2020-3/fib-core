@@ -6,7 +6,7 @@ module fle_s (x1, x2, y);
     output [31:0] y;
 
     wire bothzero;
-    wire le;
+    wire le, ge;
     wire y_;
     wire [31:0] y;
 

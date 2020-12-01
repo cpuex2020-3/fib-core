@@ -302,7 +302,9 @@ module main_controller(clk, rstn, instr,
                 memtoreg <= mem2reg_misc;
                 regwrite <= 1;
             end else if (state == s_fpu_reg) begin
-                iorf[2] <= (funct7 == fpu_cvt_f_x || funct7 == fpu_mv_f_x) ? 0 : 1;
+                iorf[2] <= (funct7 == fpu_cvt_f_x 
+                         || funct7 == fpu_mv_f_x
+                         || funct7 == fpu_compare) ? 0 : 1;
                 memtoreg <= mem2reg_fpu;
                 state <= s_fpu_exec;
             end else if (state == s_fpu_exec) begin
