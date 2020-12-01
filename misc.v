@@ -35,5 +35,6 @@ module misc (a, b, control, result);
     div10 div10_0(a, div10res);
     assign result =
         control == 3'h0 ? mul10res
-                        : div10res;
+      : control == 3'h1 ? div10res
+                        : a ^ b;
 endmodule
