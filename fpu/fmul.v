@@ -4,8 +4,7 @@
 module fmul (
     input wire [31:0] x1, 
     input wire [31:0] x2,
-    output wire [31:0] y,
-    output wire ovf);
+    output wire [31:0] y);
 
     // Wires and Registers
     // Stage 1
@@ -79,7 +78,7 @@ module fmul (
     assign m4 = (e3[8] == 0) ? 23'b0 :(m3[25] == 1) ? m3[24:2] : m3[23:1];
     // Stage 3-3 : return value
     assign y = {s3, e5, m4};
-    assign ovf = 1'b0;
+    // assign ovf = 1'b0;
 
 
 endmodule

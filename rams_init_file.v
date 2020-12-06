@@ -1,7 +1,7 @@
 `timescale 1ns / 100ps
 `default_nettype none
 
-module ram_prog #(parameter MEM = 10) (clk, pc, instr);
+module ram_prog #(parameter MEM = 17) (clk, pc, instr);
     input wire clk;
     input [MEM-3:0] pc;
     output [31:0] instr;
@@ -18,7 +18,7 @@ module ram_prog #(parameter MEM = 10) (clk, pc, instr);
     end
 endmodule
 
-module ram_data #(parameter MEM = 10) (clk, we, addr, din, dout);
+module ram_data #(parameter MEM = 17) (clk, we, addr, din, dout);
     input wire clk;
     input wire we;
     input [MEM-1:0] addr;

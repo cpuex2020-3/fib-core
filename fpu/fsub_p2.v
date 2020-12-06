@@ -1,44 +1,10 @@
 `default_nettype none
 `timescale 10ps / 1ps
 
-module priority_encoder (
-        input wire [26:0] myd,
-        output wire [4:0] se);
-    
-    assign se =
-        myd[25] ? 5'd0 :
-        myd[24] ? 5'd1 :
-        myd[23] ? 5'd2 :
-        myd[22] ? 5'd3 :
-        myd[21] ? 5'd4 :
-        myd[20] ? 5'd5 :
-        myd[19] ? 5'd6 :
-        myd[18] ? 5'd7 :
-        myd[17] ? 5'd8 :
-        myd[16] ? 5'd9 :
-        myd[15] ? 5'd10 :
-        myd[14] ? 5'd11 :
-        myd[13] ? 5'd12 :
-        myd[12] ? 5'd13 :
-        myd[11] ? 5'd14 :
-        myd[10] ? 5'd15 :
-        myd[9] ? 5'd16 :
-        myd[8] ? 5'd17 :
-        myd[7] ? 5'd18 :
-        myd[6] ? 5'd19 :
-        myd[5] ? 5'd20 :
-        myd[4] ? 5'd21 :
-        myd[3] ? 5'd22 :
-        myd[2] ? 5'd23 :
-        myd[1] ? 5'd24 :
-        myd[0] ? 5'd25 : 5'd26;
-endmodule
-
 module fsub_p2 (
         input wire [31:0] x1,
         input wire [31:0] x2,
         output wire [31:0] y,
-        output wire ovf,
         input wire clk,
         input wire rstn);
 
@@ -71,7 +37,6 @@ module fsub_p2 (
     wire [24:0] ms;
     wire [24:0] mi;
     wire [7:0] es;
-    wire [7:0] ei;
     wire ss;
     // step 10
     wire [55:0] mie;
@@ -111,10 +76,10 @@ module fsub_p2 (
     reg [31:0] x2_reg;
     reg s1_reg;
     reg [7:0] e1_reg;
-    reg [22:0] m1_reg;
+    reg [21:0] m1_reg;
     reg s2_reg;
     reg [7:0] e2_reg;
-    reg [22:0] m2_reg;
+    reg [21:0] m2_reg;
     reg ss_reg;
     reg [7:0] eyd_reg;
     reg [26:0] myd_reg;
@@ -152,7 +117,6 @@ module fsub_p2 (
     assign ms = sel ? m2a : m1a;
     assign mi = sel ? m1a : m2a;
     assign es = sel ? e2a : e1a;
-    assign ei = sel ? e1a : e2a;
     assign ss = sel ? s2 : s1;
     // step 10
     assign mie = {mi, 31'b0};
@@ -169,7 +133,7 @@ module fsub_p2 (
     assign myd = mye[26] ? ((& esi) ? {2'b01,25'b0} : mye >> 1) : mye;
     assign stck = mye[26] ? (!(& esi) & (tstck | mye[0])) : tstck;
     // step 16
-    priority_encoder pe(myd_reg, se);
+    my_priority_encoder pe(myd_reg, se);
     // step 17
     assign eyf = {1'b0,eyd_reg} - {4'b0,se};
     // step 18
@@ -195,14 +159,13 @@ module fsub_p2 (
     assign nzm1 = (m1[22:0] != 0);
     assign nzm2 = (m2[22:0] != 0);
     assign y =
-        ((e1_reg == 8'hFF) & (e2_reg != 8'hFF)) ? {s1_reg,8'hFF,nzm1_reg,m1_reg[21:0]} :
-        ((e2_reg == 8'hFF) & (e1_reg != 8'hFF)) ? {s2_reg,8'hFF,nzm2_reg,m2_reg[21:0]} :
-        ((e1_reg == 8'hFF) & (e2_reg == 8'hFF) & nzm2_reg) ? {s2_reg,8'hFF,1'b1,m2_reg[21:0]} :
-        ((e1_reg == 8'hFF) & (e2_reg == 8'hFF) & nzm1_reg) ? {s1_reg,8'hFF,1'b1,m1_reg[21:0]} :
+        ((e1_reg == 8'hFF) & (e2_reg != 8'hFF)) ? {s1_reg,8'hFF,nzm1_reg,m1_reg} :
+        ((e2_reg == 8'hFF) & (e1_reg != 8'hFF)) ? {s2_reg,8'hFF,nzm2_reg,m2_reg} :
+        ((e1_reg == 8'hFF) & (e2_reg == 8'hFF) & nzm2_reg) ? {s2_reg,8'hFF,1'b1,m2_reg} :
+        ((e1_reg == 8'hFF) & (e2_reg == 8'hFF) & nzm1_reg) ? {s1_reg,8'hFF,1'b1,m1_reg} :
         ((e1_reg == 8'hFF) & (e2_reg == 8'hFF) & (s1_reg == s2_reg)) ? {s1_reg,8'hFF,23'b0} :
         ((e1_reg == 8'hFF) & (e2_reg == 8'hFF)) ? {1'b1,8'hFF,1'b1,22'b0} :
         {sy,ey,my};
-    assign ovf = ((e1_reg != 8'hFF) & (e2_reg != 8'hFF) & (ey == 8'hFF));
 
     always @(posedge clk) begin
         if (~rstn) begin
@@ -210,10 +173,10 @@ module fsub_p2 (
             x2_reg <= 32'b0;
             s1_reg <= 1'b0;
             e1_reg <= 8'b0;
-            m1_reg <= 23'b0;
+            m1_reg <= 22'b0;
             s2_reg <= 1'b0;
             e2_reg <= 8'b0;
-            m2_reg <= 23'b0;
+            m2_reg <= 22'b0;
             ss_reg <= 1'b0;
             eyd_reg <= 8'b0;
             myd_reg <= 27'b0;
@@ -225,10 +188,10 @@ module fsub_p2 (
             x2_reg <= x2;
             s1_reg <= s1;
             e1_reg <= e1;
-            m1_reg <= m1;
+            m1_reg <= m1[21:0];
             s2_reg <= s2;
             e2_reg <= e2;
-            m2_reg <= m2;
+            m2_reg <= m2[21:0];
             ss_reg <= ss;
             eyd_reg <= eyd;
             myd_reg <= myd;

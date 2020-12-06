@@ -132,9 +132,10 @@ module main_controller(clk, rstn, instr,
     localparam fpu_sgnj     = 7'h10;
     localparam fpu_sqrt     = 7'h2C;
     localparam fpu_compare  = 7'h50;
-    localparam fpu_cvt_f_x  = 7'h60;
-    localparam fpu_cvt_x_f  = 7'h68;
-    localparam fpu_mv_f_x   = 7'h70;
+    localparam fpu_cvt_x_s  = 7'h60;
+    localparam fpu_cvt_s_x  = 7'h68;
+    localparam fpu_mv_x_s   = 7'h70;
+    localparam fpu_mv_s_x   = 7'h78;
 
     assign opcode = instr[6:2];
     assign rd = instr[11:7];
@@ -142,21 +143,25 @@ module main_controller(clk, rstn, instr,
     assign funct7 = instr[31:25];
     assign imm =
         opcode == op_load       ? srcb_i
+      : opcode == op_fload      ? srcb_i
       : opcode == op_arith_imm  ? srcb_i
       : opcode == op_auipc      ? srcb_u
       : opcode == op_store      ? srcb_s
+      : opcode == op_fstore     ? srcb_s
       : opcode == op_lui        ? srcb_u
       : opcode == op_branch     ? srcb_sb
       : opcode == op_jalr       ? srcb_i
       : opcode == op_jal        ? srcb_uj
                                 : srcb_undef;
     assign fpu_maxcount =
-        funct7 == fpu_add       ? 4'h1
-      : funct7 == fpu_sub       ? 4'h1
+        funct7 == fpu_add       ? 4'h2
+      : funct7 == fpu_sub       ? 4'h2
     //   : funct7 == fpu_mul       ? 4'h0
     //   : funct7 == fpu_sgnj      ? 4'h0
-      : funct7 == fpu_cvt_x_f   ? 4'h4
     //   : funct7 == fpu_compare   ? 4'h0
+      : funct7 == fpu_cvt_s_x   ? 4'h3
+    //   : funct7 == fpu_mv_x_s    ? 4'h0
+    //   : funct7 == fpu_mv_s_x    ? 4'h0
                                 : 4'h0;
 
     always @(posedge clk) begin
@@ -211,7 +216,7 @@ module main_controller(clk, rstn, instr,
                           || opcode == op_fload
                           || opcode == op_fstore) begin
                     state <= s_memaddr;
-                    iorf[1] <= opcode == op_store ? 0 : 1;
+                    iorf[1] <= opcode == op_fstore ? 1 : 0;
                     alusrca <= 2'b01;
                     alusrcb <= imm;
                     alucontrol <= alu_add_sub;
@@ -243,7 +248,7 @@ module main_controller(clk, rstn, instr,
                     misccontrol <= funct3;
                 end else if (opcode == op_farith) begin
                     state <= s_fpu_reg;
-                    iorf[0] <= funct7 == fpu_cvt_x_f ? 0 : 1;
+                    iorf[0] <= (funct7 == fpu_cvt_s_x || funct7 == fpu_mv_s_x) ? 0 : 1;
                     iorf[1] <= 1;
                     alusrca <= 2'b01;
                     alusrcb <= 3'b000;
@@ -277,6 +282,7 @@ module main_controller(clk, rstn, instr,
                     state <= s_halt;
                 end
             end else if (state == s_memaddr) begin
+                iorf[2] <= opcode == op_fload ? 1 : 0;
                 if (opcode == op_load
                  || opcode == op_fload) begin
                     state <= s_memread;
@@ -287,7 +293,6 @@ module main_controller(clk, rstn, instr,
                 end
             end else if (state == s_memread) begin
                 state <= s_writeback;
-                iorf[2] <= opcode == op_load ? 0 : 1;
                 memtoreg <= mem2reg_mem;
                 regwrite <= 1;
             end else if (state == s_arimm_exec
@@ -302,8 +307,7 @@ module main_controller(clk, rstn, instr,
                 memtoreg <= mem2reg_misc;
                 regwrite <= 1;
             end else if (state == s_fpu_reg) begin
-                iorf[2] <= (funct7 == fpu_cvt_f_x 
-                         || funct7 == fpu_mv_f_x
+                iorf[2] <= (funct7 == fpu_mv_x_s
                          || funct7 == fpu_compare) ? 0 : 1;
                 memtoreg <= mem2reg_fpu;
                 state <= s_fpu_exec;
@@ -342,7 +346,7 @@ module main_controller(clk, rstn, instr,
     end
 endmodule
 
-module core #(parameter MEM = 10) (
+module core #(parameter MEM = 17) (
     clk, rstn, 
     pcaddr, instr,
     memwe, memaddr, memdin, memdout,
