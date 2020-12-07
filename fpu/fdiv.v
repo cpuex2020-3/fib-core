@@ -9,7 +9,7 @@ module fdiv (
         output wire [31:0] y);
 
     wire [31:0] x2n_inv;
-    wire fmul_ovf;
+    reg [31:0] x2n_inv_reg;
 
     wire [7:0]  e1;
     wire [7:0]  e2;
@@ -28,8 +28,15 @@ module fdiv (
 
 
     finv u0(x2n, clk, rstn, x2n_inv);
-    fmul u1(x1n, x2n_inv, y, fmul_ovf);
+    fmul u1(x1n, x2n_inv_reg, y);
 
+    always @(posedge clk) begin
+        if (~rstn) begin
+            x2n_inv_reg <= 0;
+        end else begin
+            x2n_inv_reg <= x2n_inv;
+        end
+    end
 endmodule
 
 

@@ -157,6 +157,8 @@ module main_controller(clk, rstn, instr,
         funct7 == fpu_add       ? 4'h2
       : funct7 == fpu_sub       ? 4'h2
     //   : funct7 == fpu_mul       ? 4'h0
+      : funct7 == fpu_div       ? 4'h2
+    //   : funct7 == fpu_mul       ? 4'h0
     //   : funct7 == fpu_sgnj      ? 4'h0
     //   : funct7 == fpu_compare   ? 4'h0
       : funct7 == fpu_cvt_s_x   ? 4'h3
@@ -346,7 +348,7 @@ module main_controller(clk, rstn, instr,
     end
 endmodule
 
-module core #(parameter MEM = 17) (
+module core #(parameter MEM = 19) (
     clk, rstn, 
     pcaddr, instr,
     memwe, memaddr, memdin, memdout,
@@ -423,7 +425,7 @@ module core #(parameter MEM = 17) (
     assign SB_imm = {{19{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0};
     assign UJ_imm = {{11{instr[31]}}, instr[31], instr[19:12], instr[20], instr[30:21], 1'b0};
     assign srca =
-        alusrca == 2'b00 ? {22'b0, pc}
+        alusrca == 2'b00 ? {15'b0, pc}
       : alusrca == 2'b01 ? a
                          : 0;
     assign srcb =
@@ -451,7 +453,7 @@ module core #(parameter MEM = 17) (
             x[reg_sp] <= 2 << (MEM - 2);
             x[reg_gp] <= 0;
             x[reg_hp] <= 1 << (MEM - 2);
-            pc <= 128;
+            pc <= 19'd2648;
             a <= 0;
             b <= 0;
             aluout <= 0;

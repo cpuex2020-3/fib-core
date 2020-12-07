@@ -10,7 +10,7 @@ module finv_table (clk, addr, value);
     reg [35:0] value;
 
     initial begin
-        $readmemh("finv_table.mem", ram);
+        $readmemh("fpu/finv_table.mem", ram);
     end
 
     always @(posedge clk) begin

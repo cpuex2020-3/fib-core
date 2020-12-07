@@ -23,8 +23,8 @@ module fmul (
     wire [12:0] h1;
     wire [12:0] h2;
     wire [25:0] hh;
-    wire [23:0] hl;
-    wire [23:0] lh;
+    wire [25:0] hl;
+    wire [25:0] lh;
     // Stage 1-2 (step 5) : Calculate exp1+exp2+129
     wire [8:0] e3;
     // Stage 1-3 (step 5) : XOR sign bits
@@ -67,7 +67,7 @@ module fmul (
 
     // Stage 2
     // Stage 2-1 (step 3) : Calculate HH + (HL >> 11) + (LH >> 11) + 2
-    assign m3 = hh + (hl>>11) + (lh>>11) + 2;
+    assign m3 = hh + (hl>>11) + (lh>>11) + 26'd2;
     // Stage 2-2 : Calculate exponent + 1
     assign e4 = e3+1;
 

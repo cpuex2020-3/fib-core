@@ -1,7 +1,7 @@
 `timescale 1ns / 100ps
 `default_nettype none
 
-module processor #(parameter MEM = 17) (clk, rstn, a0out, rxd, txd);
+module processor #(parameter MEM = 19) (clk, rstn, a0out, rxd, txd);
     input wire clk, rstn;
     input wire rxd;
     output [7:0] a0out;
