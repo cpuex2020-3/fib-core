@@ -1,7 +1,7 @@
 `timescale 1ns / 100ps
 `default_nettype none
 
-module uart_buf #(parameter MEM = 12, DWIDTH=8) (clk, rstn, din, din_ready, next, dout, dout_ready);
+module uart_buf #(parameter MEM = 18, DWIDTH=8) (clk, rstn, din, din_ready, next, dout, dout_ready);
     input wire clk, rstn, din_ready, next;
     input wire [7:0] din;
     output dout_ready;
