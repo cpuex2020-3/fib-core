@@ -160,6 +160,7 @@ module main_controller(clk, rstn, instr,
       : funct7 == fpu_div       ? 4'h2
     //   : funct7 == fpu_mul       ? 4'h0
     //   : funct7 == fpu_sgnj      ? 4'h0
+      : funct7 == fpu_sqrt      ? 4'h1
     //   : funct7 == fpu_compare   ? 4'h0
       : funct7 == fpu_cvt_s_x   ? 4'h3
     //   : funct7 == fpu_mv_x_s    ? 4'h0

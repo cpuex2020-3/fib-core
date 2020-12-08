@@ -14,6 +14,7 @@ module fpu (clk, rstn, funct3, funct7, x1, x2, y);
     wire [31:0] fmul_s_res;
     wire [31:0] fdiv_s_res;
     wire [31:0] fsgnj_s_res, fsgnjn_s_res, fsgnjx_s_res;
+    wire [31:0] fsqrt_s_res;
     wire [31:0] feq_s_res, flt_s_res, fle_s_res;
     wire [31:0] fcvt_s_w_res;
     wire [31:0] fmv_w_s_res;
@@ -27,6 +28,7 @@ module fpu (clk, rstn, funct3, funct7, x1, x2, y);
     fsgnj_s   fsgnj_s_0  (x1, x2[31], fsgnj_s_res);
     fsgnjn_s  fsgnjn_s_0 (x1, x2[31], fsgnjn_s_res);
     fsgnjx_s  fsgnjx_s_0 (x1, x2[31], fsgnjx_s_res);
+    fsqrt     fsqrt_s_0  (x1, clk, rstn, y);
     feq_s     feq_s_0    (x1, x2, feq_s_res);
     flt_s     flt_s_0    (x1, x2, flt_s_res);
     fle_s     fle_s_0    (x1, x2, fle_s_res);
@@ -48,6 +50,7 @@ module fpu (clk, rstn, funct3, funct7, x1, x2, y);
       : funct7 == 7'h08 ? fmul_s_res
       : funct7 == 7'h0C ? fdiv_s_res
       : funct7 == 7'h10 ? fsgnj_s_3_res
+      : funct7 == 7'h2C ? fsqrt_s_res
       : funct7 == 7'h50 ? fcompare_s_3_res
       : funct7 == 7'h68 ? fcvt_s_w_res
       : funct7 == 7'h70 ? fmv_w_s_res
