@@ -162,7 +162,7 @@ module main_controller(clk, rstn, instr,
     //   : funct7 == fpu_sgnj      ? 4'h0
       : funct7 == fpu_sqrt      ? 4'h1
     //   : funct7 == fpu_compare   ? 4'h0
-      : funct7 == fpu_cvt_s_x   ? 4'h3
+      : funct7 == fpu_cvt_s_x   ? 4'h4
     //   : funct7 == fpu_mv_x_s    ? 4'h0
     //   : funct7 == fpu_mv_s_x    ? 4'h0
                                 : 4'h0;
@@ -351,11 +351,12 @@ endmodule
 
 module core #(parameter MEM = 19) (
     clk, rstn, 
-    pcaddr, instr,
+    pcaddr, instr, fin,
     memwe, memaddr, memdin, memdout,
     a0out, 
     rdata, rx_ready, next, sdata, tx_ready);
     input wire clk, rstn;
+    output fin;
     output memwe;
     output [MEM-3:0] pcaddr;
     output [MEM-1:0] memaddr;
@@ -368,6 +369,7 @@ module core #(parameter MEM = 19) (
     output [7:0] sdata;
     output tx_ready, next;
 
+    reg fin;
     // block RAM
     wire memwe;
     wire [MEM-3:0] pcaddr;
@@ -387,6 +389,13 @@ module core #(parameter MEM = 19) (
     // uart
     wire [7:0] sdata;
     wire tx_ready, next;
+    // for debug
+    // reg [63:0] counter;
+    // localparam FINBASE = 64'h2E0000;
+    // localparam FINCNT  = 64'h400000;
+    // localparam FINMASK = 64'h00FFFF;
+    // integer i;
+    // reg pcwrite_prev;
 
     wire [2:0] funct3;
     wire [6:0] funct7;
@@ -426,7 +435,7 @@ module core #(parameter MEM = 19) (
     assign SB_imm = {{19{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0};
     assign UJ_imm = {{11{instr[31]}}, instr[31], instr[19:12], instr[20], instr[30:21], 1'b0};
     assign srca =
-        alusrca == 2'b00 ? {15'b0, pc}
+        alusrca == 2'b00 ? {13'b0, pc}
       : alusrca == 2'b01 ? a
                          : 0;
     assign srcb =
@@ -448,19 +457,27 @@ module core #(parameter MEM = 19) (
         iorf, alusrca, alusrcb, alucontrol, porm, lora, aluzero, misccontrol,
         rx_ready, tx_ready, next);
 
+    // initial begin
+    //     $display("base: %H", FINBASE);
+    //     $display("mask: %H", FINMASK);
+    // end
+
     always @(posedge clk) begin
         if (~rstn) begin
+            fin <= 0;
             x[reg_zero] <= 32'h0;
-            x[reg_sp] <= 2 << (MEM - 2);
+            x[reg_sp] <= 2 << MEM;
             x[reg_gp] <= 0;
-            x[reg_hp] <= 1 << (MEM - 2);
-            pc <= 19'd2968;
+            x[reg_hp] <= 1 << MEM;
+            pc <= 19'd39100;
             a <= 0;
             b <= 0;
             aluout <= 0;
             fpuout <= 0;
             miscout <= 0;
+            // counter <= 0;
         end else begin
+            if (instr[1:0] == 0) fin <= 1;
             pc <= pcwrite ? aluresult[MEM-1:0] : pc;
             a <= x[{iorf[0], rs1}];
             b <= x[{iorf[1], rs2}];
@@ -468,6 +485,20 @@ module core #(parameter MEM = 19) (
             fpuout <= fpuresult;
             miscout <= miscresult;
             if (regwrite) x[{iorf[2], rd}] <= writedata;
-        end
+
+        //     pcwrite_prev <= pcwrite;
+        //     if (pcwrite) counter <= counter + 64'd1;
+        //     if (pcwrite_prev && ((counter & FINMASK) == FINBASE)) begin
+        //         $display("counter: %H", counter);
+        //         $display("pc: %d", pc);
+        //         for (i = 0; i < 64; i = i + 1) begin
+        //             $display("x%d : %08H", i, x[i]);
+        //         end
+        //     end
+        //     if (counter == FINCNT) begin
+        //         $display("counter: %H", counter);
+        //         $finish;
+        //     end
+        // end
     end
 endmodule
