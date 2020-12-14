@@ -28,7 +28,7 @@ module fpu (clk, rstn, funct3, funct7, x1, x2, y);
     fsgnj_s   fsgnj_s_0  (x1, x2[31], fsgnj_s_res);
     fsgnjn_s  fsgnjn_s_0 (x1, x2[31], fsgnjn_s_res);
     fsgnjx_s  fsgnjx_s_0 (x1, x2[31], fsgnjx_s_res);
-    fsqrt     fsqrt_s_0  (x1, clk, rstn, y);
+    fsqrt     fsqrt_s_0  (x1, clk, rstn, fsqrt_s_res);
     feq_s     feq_s_0    (x1, x2, feq_s_res);
     flt_s     flt_s_0    (x1, x2, flt_s_res);
     fle_s     fle_s_0    (x1, x2, fle_s_res);

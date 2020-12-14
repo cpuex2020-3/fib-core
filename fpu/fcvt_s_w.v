@@ -43,5 +43,5 @@ module itof_large(clk, rstn, x, y, isneg);
     wire [31:0] x_itof;
 
     itof_small itof_small_0(clk, rstn, x, x_itof, isneg);
-    assign y = {1'b0, x_itof[30:23] + 8'd23, x_itof[22:0]};
+    assign y = {x_itof[31], x_itof[30:23] + 8'd23, x_itof[22:0]};
 endmodule

@@ -17,7 +17,7 @@ module div10 (x, y);
     wire [31:0] y;
     wire [63:0] z;
 
-    localparam multiplier = 32'hCCCCCCCC;
+    localparam multiplier = 32'hCCCCCCCD;
 
     assign z = x * multiplier;
     assign y = {3'b0, z[63:35]};
