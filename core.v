@@ -412,6 +412,7 @@ module core #(parameter MEM = 19) (
     localparam reg_gp   = 6'h03;
     localparam reg_hp   = 6'h05;
     localparam reg_a0   = 6'h0A;
+    localparam reg_fz   = 6'h32;
 
     assign memwe = memwrite;
     assign pcaddr = pc[MEM-1:2];
@@ -469,7 +470,8 @@ module core #(parameter MEM = 19) (
             x[reg_sp] <= 2 << MEM;
             x[reg_gp] <= 0;
             x[reg_hp] <= 1 << MEM;
-            pc <= 19'd39100;
+            x[reg_fz] <= 0;
+            pc <= 19'd73384;
             a <= 0;
             b <= 0;
             aluout <= 0;
@@ -499,6 +501,6 @@ module core #(parameter MEM = 19) (
         //         $display("counter: %H", counter);
         //         $finish;
         //     end
-        // end
+        end
     end
 endmodule
