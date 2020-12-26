@@ -4,9 +4,11 @@
 module test_fcvt_s_w();
    logic        clk, rstn;
    logic [31:0]  x1,  c,  y;
-   shortreal    x1f, cf, yf;
+   int          x1i;
+   real         cr;
+   shortreal    cf, yf;
 
-   fcvt_s_w u1(x1, y, clk, rstn);
+   fcvt_s_w u1(clk, rstn, x1, y);
 
    initial begin
       $display("start of checking module fcvt_s_w");
@@ -25,9 +27,9 @@ module test_fcvt_s_w();
       clk = 1;
       #1;
       // Main routine
-      repeat(1024*1024*8) begin
+      repeat(/*1024*1024**/8) begin
          x1 = $urandom();
-         x1f = $bitstoshortreal(x1);
+         x1i = x1;
          if(x1[30:23]==255 || x1[30:23]==0) begin
             if(x1[30:0]==0)begin
                $display("x1 is zero.");
@@ -44,12 +46,15 @@ module test_fcvt_s_w();
             #1; 
          end
          
-         cf = int(x1);
-
+         cr = $itor(x1i);
+         cf = (shortreal'(c));
          c  = $shortrealtobits(cf);
+
+         yf = $bitstoshortreal(y);
+
          if (c != y) begin
-            $display("x1 = %b %b %b %e",
-               x1[31], x1[30:23], x1[22:0], x1f);
+            $display("x1 = %b %b %b %d",
+               x1[31], x1[30:23], x1[22:0], x1i);
             $display("c  = %b %b %b %e",
                c[31], c[30:23], c[22:0], cf);
             $display("y  = %b %b %b %e",
