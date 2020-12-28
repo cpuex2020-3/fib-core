@@ -27,7 +27,7 @@ module test_fcvt_s_w();
       clk = 1;
       #1;
       // Main routine
-      repeat(/*1024*1024**/8) begin
+      repeat(1024*1024*8) begin
          x1 = $urandom();
          x1i = x1;
          if(x1[30:23]==255 || x1[30:23]==0) begin
@@ -47,7 +47,7 @@ module test_fcvt_s_w();
          end
          
          cr = $itor(x1i);
-         cf = (shortreal'(c));
+         cf = shortreal'(cr);
          c  = $shortrealtobits(cf);
 
          yf = $bitstoshortreal(y);
