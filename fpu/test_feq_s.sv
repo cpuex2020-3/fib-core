@@ -34,9 +34,49 @@ module test_feq_s();
    initial begin
       $display("start of checking module feq_s");
       // Main routine
+      
+
+      x1 = 32'h00000000;
+      x2 = 32'h00000000;
+      #1;
+      check_feq_s(x1, x2, y);
+
+      x1 = 32'h80000000;
+      x2 = 32'h00000000;
+      #1;
+      check_feq_s(x1, x2, y);
+
+      x1 = 32'h00000000;
+      x2 = 32'h80000000;
+      #1;
+      check_feq_s(x1, x2, y);
+
+
       repeat(1024*1024*8) begin
          x1 = $urandom();
          x2 = $urandom();
+         if(x1[30:23]==255 || x1[30:23]==0) begin
+            if(x1[30:0]==0)begin
+               $display("x1 is zero.");
+            end else begin
+               //$display("x1 is nan or inf.");
+               continue;
+            end
+         end
+         if(x2[30:23]==255 || x2[30:23]==0) begin
+            if(x2[30:0]==0)begin
+               $display("x2 is zero.");
+            end else begin
+               //$display("x2 is nan or inf.");
+               continue;
+            end
+         end
+         #1;
+         check_feq_s(x1, x2, y);
+      end
+      repeat(1024*1024*8) begin
+         x1 = $urandom();
+         x2 = x1;
          if(x1[30:23]==255 || x1[30:23]==0) begin
             if(x1[30:0]==0)begin
                $display("x1 is zero.");
