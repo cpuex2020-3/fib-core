@@ -2,54 +2,54 @@
 `default_nettype none
 
 
-function void check_feq_s(
+function void check_flt_s(
     input logic [31:0] x1,
     input logic [31:0] x2,
-    input logic y);
+    input logic [31:0] y);
    logic c;
    shortreal    x1f, x2f;
 
    x1f = $bitstoshortreal(x1);
    x2f = $bitstoshortreal(x2);
-   // feq
-   c = (x1f==x2f) ? 1 : 0;
+   // flt
+   c = (x1f<x2f) ? 1 : 0;
 
-   if (c != y) begin
+   if (c != y[0]) begin
       $display("x1 = %b %b %b %e",
          x1[31], x1[30:23], x1[22:0], x1f);
       $display("x2 = %b %b %b %e",
          x2[31], x2[30:23], x2[22:0], x2f);
       $display("c  = %b", c);
-      $display("y  = %b", y);
+      $display("y  = %b", y[0]);
    end
    return;
 endfunction
 
-module test_feq_s();
+module test_flt_s();
    logic [31:0]  x1,  x2;
-   logic         y;
+   logic [31:0]  y;
 
-   feq_s u1(x1, x2, y);
+   flt_s u1(x1, x2, y);
 
    initial begin
-      $display("start of checking module feq_s");
+      $display("start of checking module flt_s");
       // Main routine
       
 
       x1 = 32'h00000000;
       x2 = 32'h00000000;
       #1;
-      check_feq_s(x1, x2, y);
+      check_flt_s(x1, x2, y);
 
       x1 = 32'h80000000;
       x2 = 32'h00000000;
       #1;
-      check_feq_s(x1, x2, y);
+      check_flt_s(x1, x2, y);
 
       x1 = 32'h00000000;
       x2 = 32'h80000000;
       #1;
-      check_feq_s(x1, x2, y);
+      check_flt_s(x1, x2, y);
 
 
       repeat(1024*1024*8) begin
@@ -72,7 +72,7 @@ module test_feq_s();
             end
          end
          #1;
-         check_feq_s(x1, x2, y);
+         check_flt_s(x1, x2, y);
       end
       repeat(1024*1024*8) begin
          x1 = $urandom();
@@ -94,9 +94,9 @@ module test_feq_s();
             end
          end
          #1;
-         check_feq_s(x1, x2, y);
+         check_flt_s(x1, x2, y);
       end
-      $display("end of checking module feq_s");
+      $display("end of checking module flt_s");
       $finish;
    end
 endmodule
