@@ -378,7 +378,7 @@ module core #(parameter MEM = 19) (
     wire [7:0] a0out;
     // registers
     reg [31:0] x [63:0]; // 31-0:int, 63-32:float
-    reg [MEM-1:0] pc;
+    reg [MEM-3:0] pc;
     // control
     wire pcwrite, memwrite, regwrite, porm, lora;
     wire [1:0] alusrca;
@@ -412,10 +412,11 @@ module core #(parameter MEM = 19) (
     localparam reg_gp   = 6'h03;
     localparam reg_hp   = 6'h05;
     localparam reg_a0   = 6'h0A;
+    localparam reg_fz   = 6'h32;
 
     assign memwe = memwrite;
-    assign pcaddr = pc[MEM-1:2];
-    assign memaddr = aluout[MEM+1:2];
+    assign pcaddr = pc[MEM-3:0];
+    assign memaddr = aluout[MEM-1:0];
     assign memdin = b;
     assign a0out = x[reg_a0][7:0];
     assign funct3 = instr[14:12];
@@ -432,15 +433,15 @@ module core #(parameter MEM = 19) (
     assign I_imm = {{20{instr[31]}}, instr[31:20]};
     assign S_imm = {{20{instr[31]}}, instr[31:25], instr[11:7]};
     assign U_imm = {instr[31:12], 12'b0};
-    assign SB_imm = {{19{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0};
-    assign UJ_imm = {{11{instr[31]}}, instr[31], instr[19:12], instr[20], instr[30:21], 1'b0};
+    assign SB_imm = {{20{instr[31]}}, instr[31:25], instr[11:7]};
+    assign UJ_imm = {{12{instr[19]}}, instr[19:12], instr[31:20]};
     assign srca =
-        alusrca == 2'b00 ? {13'b0, pc}
+        alusrca == 2'b00 ? {15'b0, pc}
       : alusrca == 2'b01 ? a
                          : 0;
     assign srcb =
         alusrcb == 3'b000 ? b
-      : alusrcb == 3'b001 ? 4
+      : alusrcb == 3'b001 ? 1
       : alusrcb == 3'b010 ? I_imm
       : alusrcb == 3'b011 ? S_imm
       : alusrcb == 3'b100 ? U_imm
@@ -466,10 +467,11 @@ module core #(parameter MEM = 19) (
         if (~rstn) begin
             fin <= 0;
             x[reg_zero] <= 32'h0;
-            x[reg_sp] <= 2 << MEM;
+            x[reg_sp] <= 2 << (MEM - 2);
             x[reg_gp] <= 0;
-            x[reg_hp] <= 1 << MEM;
-            pc <= 19'd39100;
+            x[reg_hp] <= 1 << (MEM - 2);
+            x[reg_fz] <= 0;
+            pc <= 17'd19120;
             a <= 0;
             b <= 0;
             aluout <= 0;
@@ -478,7 +480,7 @@ module core #(parameter MEM = 19) (
             // counter <= 0;
         end else begin
             if (instr[1:0] == 0) fin <= 1;
-            pc <= pcwrite ? aluresult[MEM-1:0] : pc;
+            pc <= pcwrite ? aluresult[MEM-3:0] : pc;
             a <= x[{iorf[0], rs1}];
             b <= x[{iorf[1], rs2}];
             aluout <= aluresult;
@@ -499,6 +501,6 @@ module core #(parameter MEM = 19) (
         //         $display("counter: %H", counter);
         //         $finish;
         //     end
-        // end
+        end
     end
 endmodule
